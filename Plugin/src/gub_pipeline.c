@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include "gub.h"
 
-#define MAX_JITTERBUFFER_DELAY_MS 40
+#define MAX_JITTERBUFFER_DELAY_MS 400
 #define MAX_PIPELINE_DELAY_MS 500
 
 typedef struct _GUBPipeline GUBPipeline;
@@ -185,9 +185,9 @@ static void source_created(GstBin *playbin, GstElement *source, GUBPipeline *pip
 {
     gub_log_pipeline(pipeline, "Setting properties to source %s", gst_plugin_feature_get_name(gst_element_get_factory(source)));
     g_object_set(source, "latency", MAX_JITTERBUFFER_DELAY_MS, NULL);
-    g_object_set(source, "ntp-time-source", 3, NULL);
-    g_object_set(source, "buffer-mode", 4, NULL);
-    g_object_set(source, "ntp-sync", TRUE, NULL);
+    g_object_set(source, "ntp-time-source", 4, NULL);
+    g_object_set(source, "buffer-mode", 2, NULL);
+    g_object_set(source, "ntp-sync", FALSE, NULL);
 
     g_signal_connect(source, "select-stream", G_CALLBACK(select_stream), pipeline);
 }
@@ -276,7 +276,11 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
         gub_pipeline_close(pipeline);
     }
 
-    full_pipeline_description = g_strdup_printf("playbin uri=%s", uri);
+    //full_pipeline_description = g_strdup_printf("videotestsrc ! fakesink name=sink", uri);
+    full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! queue min-threshold-time=1000000000 max-size-buffers=0 max-size-time=0 max-size-bytes=0 ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
+    //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! decodebin ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
+    //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! h264parse ! avdec_h264", uri);
+    //full_pipeline_description = g_strdup_printf("playbin uri=%s", uri);
     gub_log_pipeline(pipeline, "Using pipeline: %s", full_pipeline_description);
 
     pipeline->pipeline = gst_parse_launch(full_pipeline_description, &err);
@@ -288,8 +292,8 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
 
     vsink = gst_parse_bin_from_description(gub_get_video_branch_description(), TRUE, NULL);
     gub_log_pipeline(pipeline, "Using video sink: %s", gub_get_video_branch_description());
-    g_object_set(pipeline->pipeline, "video-sink", vsink, NULL);
-    g_object_set(pipeline->pipeline, "flags", 0x0003, NULL);
+    //g_object_set(pipeline->pipeline, "video-sink", vsink, NULL);
+    //g_object_set(pipeline->pipeline, "flags", 0x0003, NULL);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline->pipeline));
     gst_bus_add_signal_watch(bus);
@@ -330,7 +334,8 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
         pipeline->video_crop_bottom = crop_bottom;
     }
 
-    g_signal_connect(pipeline->pipeline, "source-setup", G_CALLBACK(source_created), pipeline);
+	//source-setup is a playbin event, it has no use for rtmpsrc
+    //g_signal_connect(pipeline->pipeline, "source-setup", G_CALLBACK(source_created), pipeline);
 
     if (net_clock_addr != NULL) {
         gint64 start, stop;
