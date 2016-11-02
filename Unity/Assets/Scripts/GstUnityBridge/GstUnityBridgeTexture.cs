@@ -111,7 +111,16 @@ public class GstUnityBridgeEventParams
     [Header("Called when a Quality Of Service event occurs")]
     public QosEvent m_OnQOS;
 }
-
+[Serializable]
+public class GstUnityBridgeStreamIndexes
+{
+    [Tooltip("If checked, Gst will attempt to play all streams, and the rest of the items will be unused")]
+    public bool m_PlayAllStreams = true;
+    [Tooltip("Zero-based index of the video stream to use (-1 disables video)")]
+    public int m_VideoIndex = 0;
+    [Tooltip("Zero-based index of the audio stream to use (-1 disables audio)")]
+    public int m_AudioIndex = 0;
+}
 public class GstUnityBridgeTexture : MonoBehaviour
 {
 #if !EXPERIMENTAL
@@ -128,10 +137,6 @@ public class GstUnityBridgeTexture : MonoBehaviour
     public bool m_Loop = false;
     [Tooltip("URI to get the stream from")]
     public string m_URI = "";
-    [Tooltip("Zero-based index of the video stream to use (-1 disables video)")]
-    public int m_VideoIndex = 0;
-    [Tooltip("Zero-based index of the audio stream to use (-1 disables audio)")]
-    public int m_AudioIndex = 0;
 
     [Tooltip("Optional material whose texture will be replaced. If None, the first material in the Renderer of this GameObject will be used.")]
     public Material m_TargetMaterial;
@@ -150,6 +155,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
     private bool m_HasBeenInitialized = false;
 
     public GstUnityBridgeEventParams m_Events = new GstUnityBridgeEventParams();
+    public GstUnityBridgeStreamIndexes m_StreamIndexes = new GstUnityBridgeStreamIndexes();
     public GstUnityBridgeCroppingParams m_VideoCropping = new GstUnityBridgeCroppingParams();
     public GstUnityBridgeSynchronizationParams m_NetworkSynchronization = new GstUnityBridgeSynchronizationParams();
     public GstUnityBridgeDebugParams m_DebugOutput = new GstUnityBridgeDebugParams();
@@ -166,7 +172,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
     {
         GStreamer.AddPluginsToPath();
     }
-
+    #region Events
     private static void OnFinish(IntPtr p)
     {
         GstUnityBridgeTexture self = ((GCHandle)p).Target as GstUnityBridgeTexture;
@@ -221,7 +227,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
             });
         }
     }
-
+    #endregion
     public void Initialize()
     {
         m_HasBeenInitialized = true;
@@ -276,7 +282,10 @@ public class GstUnityBridgeTexture : MonoBehaviour
         if (m_InitializeOnStart && !m_HasBeenInitialized)
         {
             Initialize();
-            Setup(m_URI, m_VideoIndex, m_AudioIndex);
+            if(m_StreamIndexes.m_PlayAllStreams)
+                Setup(m_URI);
+            else
+                Setup(m_URI, m_StreamIndexes.m_VideoIndex, m_StreamIndexes.m_AudioIndex);
             Play();
         }
     }
@@ -297,15 +306,47 @@ public class GstUnityBridgeTexture : MonoBehaviour
         }
         m_Texture.filterMode = FilterMode.Bilinear;
     }
-
+    /// <summary>
+    /// Setup the GstUnityBridge pipeline for decoding
+    /// Only play the streams designated by _VideoIndex and _AudioIndex
+    /// </summary>
+    /// <param name="_URI"></param>
+    /// <param name="_VideoIndex"></param>
+    /// <param name="_AudioIndex"></param>
     public void Setup(string _URI, int _VideoIndex, int _AudioIndex)
     {
         m_URI = _URI;
-        m_VideoIndex = _VideoIndex;
-        m_AudioIndex = _AudioIndex;
+        m_StreamIndexes.m_VideoIndex = _VideoIndex;
+        m_StreamIndexes.m_AudioIndex = _AudioIndex;
+        m_StreamIndexes.m_PlayAllStreams = false;
         if (m_Pipeline.IsLoaded || m_Pipeline.IsPlaying)
             m_Pipeline.Close();
-        m_Pipeline.SetupDecoding(m_URI, m_VideoIndex, m_AudioIndex,
+        m_Pipeline.SetupDecoding(m_URI,
+            m_StreamIndexes.m_PlayAllStreams,
+            m_StreamIndexes.m_VideoIndex,
+            m_StreamIndexes.m_AudioIndex,
+            m_NetworkSynchronization.m_Enabled ? m_NetworkSynchronization.m_MasterClockAddress : null,
+            m_NetworkSynchronization.m_MasterClockPort,
+            m_NetworkSynchronization.m_BaseTime,
+            m_VideoCropping.m_Left, m_VideoCropping.m_Top, m_VideoCropping.m_Right, m_VideoCropping.m_Bottom);
+    }
+    /// <summary>
+    /// Setup the GstUnityBridge pipeline for decoding
+    /// This will let Playbin choose which streams to utilize
+    /// </summary>
+    /// <param name="_URI"></param>
+    public void Setup(string _URI)
+    {
+        m_URI = _URI;
+        m_StreamIndexes.m_VideoIndex = 0;
+        m_StreamIndexes.m_AudioIndex = 0;
+        m_StreamIndexes.m_PlayAllStreams = true;
+        if (m_Pipeline.IsLoaded || m_Pipeline.IsPlaying)
+            m_Pipeline.Close();
+        m_Pipeline.SetupDecoding(m_URI, 
+            m_StreamIndexes.m_PlayAllStreams,
+            m_StreamIndexes.m_VideoIndex,
+            m_StreamIndexes.m_AudioIndex,
             m_NetworkSynchronization.m_Enabled ? m_NetworkSynchronization.m_MasterClockAddress : null,
             m_NetworkSynchronization.m_MasterClockPort,
             m_NetworkSynchronization.m_BaseTime,

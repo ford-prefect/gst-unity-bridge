@@ -49,6 +49,7 @@ struct _GUBPipeline {
     GstClock *net_clock;
     gboolean playing;
     gboolean play_requested;
+	gboolean playAllStreams;
     int video_index;
     int audio_index;
     float video_crop_left;
@@ -189,7 +190,9 @@ static void source_created(GstBin *playbin, GstElement *source, GUBPipeline *pip
     g_object_set(source, "buffer-mode", 2, NULL);
     g_object_set(source, "ntp-sync", FALSE, NULL);
 
-    g_signal_connect(source, "select-stream", G_CALLBACK(select_stream), pipeline);
+	if (!pipeline->playAllStreams) {
+		g_signal_connect(source, "select-stream", G_CALLBACK(select_stream), pipeline);
+	}
 }
 
 static void message_received(GstBus *bus, GstMessage *message, GUBPipeline *pipeline)
@@ -263,7 +266,7 @@ beach:
     return ret;
 }
 
-EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *uri, int video_index, int audio_index,
+EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *uri, gboolean playAllStreams, int video_index, int audio_index,
     const gchar *net_clock_addr, int net_clock_port, guint64 basetime,
     float crop_left, float crop_top, float crop_right, float crop_bottom)
 {
@@ -275,12 +278,17 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
     if (pipeline->pipeline) {
         gub_pipeline_close(pipeline);
     }
+    
+	//http://www.caminandes.com/download/03_caminandes_llamigos_1080p.mp4
+
+	//full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! queue min-threshold-time=3000000000 max-size-buffers=0 max-size-time=0 max-size-bytes=0 ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=RGB ! fakesink qos=1 sync=1 name=sink", uri);
 
     //full_pipeline_description = g_strdup_printf("videotestsrc ! fakesink name=sink", uri);
-    full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! queue min-threshold-time=1000000000 max-size-buffers=0 max-size-time=0 max-size-bytes=0 ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
+    //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! queue min-threshold-time=3000000000 max-size-buffers=0 max-size-time=0 max-size-bytes=0 ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
+    //return "videoconvert ! video/x-raw,format=RGB ! fakesink sync=1 qos=1 name=sink";
     //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! decodebin ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
     //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! h264parse ! avdec_h264", uri);
-    //full_pipeline_description = g_strdup_printf("playbin uri=%s", uri);
+    full_pipeline_description = g_strdup_printf("playbin uri=%s", uri);
     gub_log_pipeline(pipeline, "Using pipeline: %s", full_pipeline_description);
 
     pipeline->pipeline = gst_parse_launch(full_pipeline_description, &err);
@@ -292,8 +300,8 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
 
     vsink = gst_parse_bin_from_description(gub_get_video_branch_description(), TRUE, NULL);
     gub_log_pipeline(pipeline, "Using video sink: %s", gub_get_video_branch_description());
-    //g_object_set(pipeline->pipeline, "video-sink", vsink, NULL);
-    //g_object_set(pipeline->pipeline, "flags", 0x0003, NULL);
+    g_object_set(pipeline->pipeline, "video-sink", vsink, NULL);
+    g_object_set(pipeline->pipeline, "flags", 0x0003, NULL);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline->pipeline));
     gst_bus_add_signal_watch(bus);
@@ -323,6 +331,7 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
     gub_log_pipeline(pipeline, "Video branch %s cropping and blitting in one operation",
         pipeline->supports_cropping_blit ? "supports" : "does not support");
 
+    pipeline->playAllStreams = playAllStreams;
     pipeline->video_index = video_index;
     pipeline->audio_index = audio_index;
 
@@ -335,7 +344,7 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
     }
 
 	//source-setup is a playbin event, it has no use for rtmpsrc
-    //g_signal_connect(pipeline->pipeline, "source-setup", G_CALLBACK(source_created), pipeline);
+    g_signal_connect(pipeline->pipeline, "source-setup", G_CALLBACK(source_created), pipeline);
 
     if (net_clock_addr != NULL) {
         gint64 start, stop;
