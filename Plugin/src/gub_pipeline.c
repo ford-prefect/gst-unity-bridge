@@ -279,15 +279,6 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
         gub_pipeline_close(pipeline);
     }
     
-	//http://www.caminandes.com/download/03_caminandes_llamigos_1080p.mp4
-
-	//full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! queue min-threshold-time=3000000000 max-size-buffers=0 max-size-time=0 max-size-bytes=0 ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=RGB ! fakesink qos=1 sync=1 name=sink", uri);
-
-    //full_pipeline_description = g_strdup_printf("videotestsrc ! fakesink name=sink", uri);
-    //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! queue min-threshold-time=3000000000 max-size-buffers=0 max-size-time=0 max-size-bytes=0 ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
-    //return "videoconvert ! video/x-raw,format=RGB ! fakesink sync=1 qos=1 name=sink";
-    //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! decodebin ! videoconvert ! video/x-raw,format=RGBA ! videocrop name=crop ! fakesink qos=1 sync=1 name=sink", uri);
-    //full_pipeline_description = g_strdup_printf("rtmpsrc location=%s ! flvdemux ! h264parse ! avdec_h264", uri);
     full_pipeline_description = g_strdup_printf("playbin uri=%s", uri);
     gub_log_pipeline(pipeline, "Using pipeline: %s", full_pipeline_description);
 
@@ -343,7 +334,6 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
         pipeline->video_crop_bottom = crop_bottom;
     }
 
-	//source-setup is a playbin event, it has no use for rtmpsrc
     g_signal_connect(pipeline->pipeline, "source-setup", G_CALLBACK(source_created), pipeline);
 
     if (net_clock_addr != NULL) {
