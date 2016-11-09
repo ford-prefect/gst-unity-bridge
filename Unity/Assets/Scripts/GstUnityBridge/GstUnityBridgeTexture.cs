@@ -239,7 +239,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
         }
 
         GStreamer.GUBUnityDebugLogPFN log_handler = null;
-        if (Application.isEditor && m_DebugOutput.m_Enabled)
+        if (m_DebugOutput.m_Enabled)
         {
             log_handler = (int level, string message) => Debug.logger.Log((LogType)level, "GUB", message);
         }
