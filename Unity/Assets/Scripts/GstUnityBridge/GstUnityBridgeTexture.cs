@@ -292,19 +292,21 @@ public class GstUnityBridgeTexture : MonoBehaviour
 
     public void Resize(int _Width, int _Height)
     {
-        m_Width = _Width;
-        m_Height = _Height;
-
+        print("Setting tex to " + _Width +" " + _Height);
         if (m_Texture == null)
         {
-            m_Texture = new Texture2D(m_Width, m_Height, TextureFormat.RGB24, false);
+            m_Texture = new Texture2D(_Width, _Height, TextureFormat.RGB24, false);
+            m_Texture.filterMode = FilterMode.Bilinear;
+            m_Texture.Apply(true, false);
         }
-        else
+        else if(_Width != m_Width || _Height != m_Height)
         {
-            m_Texture.Resize(m_Width, m_Height, TextureFormat.RGB24, false);
-            m_Texture.Apply(false, false);
+            print("New tex dimensions: " + _Width + " " + _Height);
+            m_Texture.Resize(_Width, _Height, TextureFormat.RGB24, false);
+            m_Texture.Apply(true, false);
         }
-        m_Texture.filterMode = FilterMode.Bilinear;
+        m_Width = _Width;
+        m_Height = _Height;
     }
     /// <summary>
     /// Setup the GstUnityBridge pipeline for decoding
