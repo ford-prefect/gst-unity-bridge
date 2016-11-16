@@ -292,7 +292,6 @@ public class GstUnityBridgeTexture : MonoBehaviour
 
     public void Resize(int _Width, int _Height)
     {
-        print("Setting tex to " + _Width +" " + _Height);
         if (m_Texture == null)
         {
             m_Texture = new Texture2D(_Width, _Height, TextureFormat.RGB24, false);
@@ -301,7 +300,6 @@ public class GstUnityBridgeTexture : MonoBehaviour
         }
         else if(_Width != m_Width || _Height != m_Height)
         {
-            print("New tex dimensions: " + _Width + " " + _Height);
             m_Texture.Resize(_Width, _Height, TextureFormat.RGB24, false);
             m_Texture.Apply(true, false);
         }
