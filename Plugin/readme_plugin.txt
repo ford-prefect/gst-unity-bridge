@@ -31,6 +31,7 @@ Setup your build environment
 - Install JDK http://www.oracle.com/technetwork/java/javase/downloads/index-jsp-138363.html
 - Set the JAVA_HOME environment variable to where you installed the JDK
 - Add the /bin and /lib folders to your PATH
+- The command "jar" should now work
 
 - Install ANT http://ant.apache.org/bindownload.cgi
 - Add ANT to your PATH
@@ -46,6 +47,9 @@ Build the plugin
 - You'll need to determine the minimum Android API Level for your application. Lower levels will allow supporting more versions, but
 won't have all the API functions of a higher version. The lowest supported version for Gstreamer is 9.
 - In a command prompt, navigate to the gst-unity-bridge\Plugin directory
+
+You can now either run the bat script "CompileForAndroid" (just make sure t edit in the appropriate android version) Or,
+
 - Run the following:
 	- android update project -p . -s --target android-<your-target-api-number-here>
 	- ndk-build APP_ABI=armeabi-v7a
@@ -58,7 +62,7 @@ won't have all the API functions of a higher version. The lowest supported versi
 	- cd bin/classes
 	- jar cvf gub.jar org/*
 - And copy the resulting gub.jar file to the Assets\Plugins\Android folder of your Unity project.
-	- copy gub.jar /Y ..\..\..\Unity\Assets\Plugins\Android
+	- xcopy /Y gub.jar ..\..\..\Unity\Assets\Plugins\Android
 
 3. Building the plugin for Linux
 
