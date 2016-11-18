@@ -185,10 +185,30 @@ static gboolean select_stream(GstBin *rtspsrc, guint num, GstCaps *caps, GUBPipe
 static void source_created(GstBin *playbin, GstElement *source, GUBPipeline *pipeline)
 {
     gub_log_pipeline(pipeline, "Setting properties to source %s", gst_plugin_feature_get_name(gst_element_get_factory(source)));
-    g_object_set(source, "latency", MAX_JITTERBUFFER_DELAY_MS, NULL);
-    g_object_set(source, "ntp-time-source", 4, NULL);
-    g_object_set(source, "buffer-mode", 2, NULL);
-    g_object_set(source, "ntp-sync", FALSE, NULL);
+    
+	// The max latency for the pipeline
+	// Packets arriving after this threshold are dropped
+	g_object_set(source, "latency", MAX_JITTERBUFFER_DELAY_MS, NULL);
+
+	// How NTP should have it's time assigned
+	// 1: NTP: The Real NTP time from real-time clock
+	// 2: UNIX: Same as above, but with UNIX epoch
+	// 3: Running-time: The Pipeline's running time
+	// 4: Clock-time: The running time + base time
+    //g_object_set(source, "ntp-time-source", 3, NULL);
+
+	// How the jitterbuffer should work
+	// 1: None.   Uses RTP timestamps, starting from 0
+	// 2: Slave.  Uses an estimation of the sender's clock
+	// 3: Buffer. Do low/high watermark buffering
+	// 4: Auto.   Choose mode depending on stream
+	// 5: Synced. Uses RTP timestamps, starting at first packet's arrival time
+    //g_object_set(source, "buffer-mode", 4, NULL);
+
+	// This overrides the rtpjitterbuffer to make the timestamps based on the NTP clock times instead of arrival time
+	// This can be used to syncronize playback amongst multiple receivers
+	// Default is false
+    //g_object_set(source, "ntp-sync", FALSE, NULL);
 
 	if (!pipeline->playAllStreams) {
 		g_signal_connect(source, "select-stream", G_CALLBACK(select_stream), pipeline);
