@@ -228,6 +228,10 @@ public class GstUnityBridgeTexture : MonoBehaviour
         }
     }
     #endregion
+    public Texture2D GetTexture()
+    {
+        return m_Texture;
+    }
     public void Initialize()
     {
         m_HasBeenInitialized = true;
@@ -266,14 +270,10 @@ public class GstUnityBridgeTexture : MonoBehaviour
                                                       Mathf.Abs(mat.mainTextureScale.y) * (m_FlipY ? -1F : 1F)));
         }
         else
-        if (GetComponent<GUITexture>())
-        {
-            GetComponent<GUITexture>().texture = m_Texture;
-        }
-        else
-        {
-            Debug.LogWarning(string.Format("[{0}] There is no Renderer or guiTexture attached to this GameObject, and TargetMaterial is not set.", name + GetInstanceID()));
-        }
+            if (GetComponent<GUITexture>())
+                GetComponent<GUITexture>().texture = m_Texture;
+            else
+                Debug.LogWarning(string.Format("[{0}] There is no Renderer or guiTexture attached to this GameObject, and TargetMaterial is not set.", name + GetInstanceID()));
 
     }
 
