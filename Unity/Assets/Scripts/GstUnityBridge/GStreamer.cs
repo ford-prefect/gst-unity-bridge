@@ -91,7 +91,7 @@ public class GStreamer
 
     internal static void Ref(string gst_debug_string, GUBUnityDebugLogPFN log_handler)
     {
-#if UNITY_ANDROID
+#if UNITY_ANDROID && !UNITY_EDITOR
         // Force loading of gstreamer_android.so before GstUnityBridge.so
         gst_android_get_application_class_loader();
         AndroidJNIHelper.debug = true;
