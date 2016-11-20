@@ -154,6 +154,10 @@ public class GstUnityBridgeTexture : MonoBehaviour
     public bool m_InitializeOnStart = true;
     private bool m_HasBeenInitialized = false;
 
+    // This is used to set a specific audio playback device on Windows.
+    // Currently it's only implemented to use the Oculus headphones
+    private string audioGUID = null;
+
     public GstUnityBridgeEventParams m_Events = new GstUnityBridgeEventParams();
     public GstUnityBridgeStreamIndexes m_StreamIndexes = new GstUnityBridgeStreamIndexes();
     public GstUnityBridgeCroppingParams m_VideoCropping = new GstUnityBridgeCroppingParams();
@@ -274,7 +278,9 @@ public class GstUnityBridgeTexture : MonoBehaviour
                 GetComponent<GUITexture>().texture = m_Texture;
             else
                 Debug.LogWarning(string.Format("[{0}] There is no Renderer or guiTexture attached to this GameObject, and TargetMaterial is not set.", name + GetInstanceID()));
-
+        #if (UNITY_EDITOR || UNITY_STANDALONE) && OCULUS
+            audioGUID = "{" + OVRManager.audioOutId + "}";
+        #endif
     }
 
     void Start()
@@ -328,6 +334,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
             m_NetworkSynchronization.m_Enabled ? m_NetworkSynchronization.m_MasterClockAddress : null,
             m_NetworkSynchronization.m_MasterClockPort,
             m_NetworkSynchronization.m_BaseTime,
+            audioGUID,
             m_VideoCropping.m_Left, m_VideoCropping.m_Top, m_VideoCropping.m_Right, m_VideoCropping.m_Bottom);
     }
     /// <summary>
@@ -350,6 +357,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
             m_NetworkSynchronization.m_Enabled ? m_NetworkSynchronization.m_MasterClockAddress : null,
             m_NetworkSynchronization.m_MasterClockPort,
             m_NetworkSynchronization.m_BaseTime,
+            audioGUID,
             m_VideoCropping.m_Left, m_VideoCropping.m_Top, m_VideoCropping.m_Right, m_VideoCropping.m_Bottom);
     }
 

@@ -287,11 +287,13 @@ beach:
 }
 
 EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *uri, gboolean playAllStreams, int video_index, int audio_index,
-    const gchar *net_clock_addr, int net_clock_port, guint64 basetime,
+    const gchar *net_clock_addr, int net_clock_port, guint64 basetime, const gchar *audioGUID,
     float crop_left, float crop_top, float crop_right, float crop_bottom)
 {
     GError *err = NULL;
     GstElement *vsink;
+	GstElement *asink;
+
     gchar *full_pipeline_description = NULL;
     GstBus *bus = NULL;
 
@@ -310,8 +312,18 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
     }
 
     vsink = gst_parse_bin_from_description(gub_get_video_branch_description(), TRUE, NULL);
+
+	if (audioGUID) {
+		//TODO Support non-directshow GUIDs
+		gchar *audio_sink_description = g_strdup_printf("directsoundsink device=%s", audioGUID);
+		gub_log_pipeline(pipeline, "Using audio sink: %s", audio_sink_description);
+		asink = gst_parse_bin_from_description(audio_sink_description, TRUE, NULL);
+		g_free(audio_sink_description);
+	}
+
     gub_log_pipeline(pipeline, "Using video sink: %s", gub_get_video_branch_description());
     g_object_set(pipeline->pipeline, "video-sink", vsink, NULL);
+    g_object_set(pipeline->pipeline, "audio-sink", asink, NULL);
     g_object_set(pipeline->pipeline, "flags", 0x0003, NULL);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline->pipeline));
