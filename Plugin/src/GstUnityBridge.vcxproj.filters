@@ -28,6 +28,24 @@
     <ClInclude Include="gub.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Unity\IUnityGraphics.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unity\IUnityGraphicsD3D9.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unity\IUnityGraphicsD3D11.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unity\IUnityGraphicsD3D12.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unity\IUnityGraphicsMetal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unity\IUnityInterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\readme_plugin.txt" />
