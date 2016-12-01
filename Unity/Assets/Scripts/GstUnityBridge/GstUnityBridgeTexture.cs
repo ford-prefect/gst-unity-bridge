@@ -164,7 +164,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
     public GstUnityBridgeSynchronizationParams m_NetworkSynchronization = new GstUnityBridgeSynchronizationParams();
     public GstUnityBridgeDebugParams m_DebugOutput = new GstUnityBridgeDebugParams();
 
-    private GstUnityBridgePipeline m_Pipeline;
+    private GStreamerNativeMethods m_Pipeline;
     private Texture2D m_Texture = null;
     private int m_Width = 64;
     private int m_Height = 64;
@@ -174,7 +174,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
 
     void Awake()
     {
-        GStreamer.AddPluginsToPath();
+        GStreamerNativeMethods.AddPluginsToPath();
     }
     #region Events
     private static void OnFinish(IntPtr p)
@@ -246,38 +246,17 @@ public class GstUnityBridgeTexture : MonoBehaviour
             m_EventProcessor = gameObject.AddComponent<EventProcessor>();
         }
 
-        GStreamer.GUBUnityDebugLogPFN log_handler = null;
+        GStreamerNativeMethods.GUBUnityDebugLogPFN log_handler = null;
         if (m_DebugOutput.m_Enabled)
         {
             log_handler = (int level, string message) => Debug.logger.Log((LogType)level, "GUB", message);
         }
 
-        GStreamer.Ref(m_DebugOutput.m_GStreamerDebugString.Length == 0 ? null : m_DebugOutput.m_GStreamerDebugString, log_handler);
+        GStreamerNativeMethods.Ref(m_DebugOutput.m_GStreamerDebugString.Length == 0 ? null : m_DebugOutput.m_GStreamerDebugString, log_handler);
 
         m_instanceHandle = GCHandle.Alloc(this);
-        m_Pipeline = new GstUnityBridgePipeline(name + GetInstanceID(), OnFinish, OnError, OnQos, (IntPtr)m_instanceHandle);
+        m_Pipeline = new GStreamerNativeMethods(name + GetInstanceID(), OnFinish, OnError, OnQos, (IntPtr)m_instanceHandle);
 
-        Resize(m_Width, m_Height);
-
-        Material mat = m_TargetMaterial;
-        if (mat == null && GetComponent<Renderer>())
-        {
-            // If no material is given, use the first one in the Renderer component
-            mat = GetComponent<Renderer>().material;
-        }
-
-        if (mat != null)
-        {
-            string tex_name = m_IsAlpha ? "_AlphaTex" : "_MainTex";
-            mat.SetTexture(tex_name, m_Texture);
-            mat.SetTextureScale(tex_name, new Vector2(Mathf.Abs(mat.mainTextureScale.x) * (m_FlipX ? -1F : 1F),
-                                                      Mathf.Abs(mat.mainTextureScale.y) * (m_FlipY ? -1F : 1F)));
-        }
-        else
-            if (GetComponent<GUITexture>())
-                GetComponent<GUITexture>().texture = m_Texture;
-            else
-                Debug.LogWarning(string.Format("[{0}] There is no Renderer or guiTexture attached to this GameObject, and TargetMaterial is not set.", name + GetInstanceID()));
         #if (UNITY_EDITOR || UNITY_STANDALONE) && OCULUS
             audioGUID = "{" + OVRManager.audioOutId + "}";
         #endif
@@ -301,8 +280,10 @@ public class GstUnityBridgeTexture : MonoBehaviour
         if (m_Texture == null)
         {
             m_Texture = new Texture2D(_Width, _Height, TextureFormat.RGB24, false);
+            //m_Texture = Texture2D.CreateExternalTexture(_Width, _Height, TextureFormat.RGB24, ) 
             m_Texture.filterMode = FilterMode.Bilinear;
             m_Texture.Apply(true, false);
+            AssignTextureToMaterial();
         }
         else if(_Width != m_Width || _Height != m_Height)
         {
@@ -311,6 +292,28 @@ public class GstUnityBridgeTexture : MonoBehaviour
         }
         m_Width = _Width;
         m_Height = _Height;
+    }
+    private void AssignTextureToMaterial()
+    {
+        Material mat = m_TargetMaterial;
+        if (mat == null && GetComponent<Renderer>())
+        {
+            // If no material is given, use the first one in the Renderer component
+            mat = GetComponent<Renderer>().material;
+        }
+
+        if (mat != null)
+        {
+            string tex_name = m_IsAlpha ? "_AlphaTex" : "_MainTex";
+            mat.SetTexture(tex_name, m_Texture);
+            mat.SetTextureScale(tex_name, new Vector2(Mathf.Abs(mat.mainTextureScale.x) * (m_FlipX ? -1F : 1F),
+                                                      Mathf.Abs(mat.mainTextureScale.y) * (m_FlipY ? -1F : 1F)));
+        }
+        else
+            if (GetComponent<GUITexture>())
+                GetComponent<GUITexture>().texture = m_Texture;
+            else
+                Debug.LogWarning(string.Format("[{0}] There is no Renderer or guiTexture attached to this GameObject, and TargetMaterial is not set.", name + GetInstanceID()));
     }
     /// <summary>
     /// Setup the GstUnityBridge pipeline for decoding
@@ -367,7 +370,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
         {
             m_Pipeline.Destroy();
             m_Pipeline = null;
-            GStreamer.Unref();
+            GStreamerNativeMethods.Unref();
         }
         m_instanceHandle.Free();
     }
@@ -438,19 +441,33 @@ public class GstUnityBridgeTexture : MonoBehaviour
         m_AdaptiveBitrateLimit = bitrate_limit;
     }
 
+    private bool TryToCreateTexture()
+    {
+        Vector2 sz;
+        if (!m_Pipeline.GrabFrame(out sz))
+            return false;
+        print("Ready to play");
+        Resize((int)sz.x, (int)sz.y);
+        m_Pipeline.SetTexture(m_Texture.GetNativeTexturePtr());
+        return true;
+    }
     void Update()
     {
         if (m_Pipeline == null)
             return;
 
+        if (m_Texture == null)
+        {
+            if (!TryToCreateTexture())
+                return;
+        }
+
+        GL.IssuePluginEvent(GStreamerNativeMethods.GetRenderEventFunc(), 1);
+        return;
         Vector2 sz;
         if (m_Pipeline.GrabFrame(out sz))
         {
-            Resize((int)sz.x, (int)sz.y);
-            if (m_Texture == null)
-                Debug.LogWarning(string.Format("[{0}] The GUBTexture does not have a texture assigned and will not paint.", name + GetInstanceID()));
-            else
-                m_Pipeline.BlitTexture(m_Texture.GetNativeTexturePtr(), m_Texture.width, m_Texture.height);
+            m_Pipeline.BlitTexture(m_Texture.GetNativeTexturePtr(), m_Texture.width, m_Texture.height);
             if (m_FirstFrame)
             {
                 if (m_AdaptiveBitrateLimit != 1.0F)

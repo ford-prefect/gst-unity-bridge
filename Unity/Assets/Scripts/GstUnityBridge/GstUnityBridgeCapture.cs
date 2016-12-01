@@ -8,7 +8,7 @@ class GstUnityBridgeCapture : MonoBehaviour
     public Texture2D m_Source = null;
     public string m_Filename = null;
 
-    private GstUnityBridgePipeline m_Pipeline;
+    private GStreamerNativeMethods m_Pipeline;
     private GCHandle m_instanceHandle;
 
     private bool m_EOS = false;
@@ -16,7 +16,7 @@ class GstUnityBridgeCapture : MonoBehaviour
 
     void Awake()
     {
-        GStreamer.AddPluginsToPath();
+        GStreamerNativeMethods.AddPluginsToPath();
     }
 
     void Update()
@@ -46,15 +46,15 @@ class GstUnityBridgeCapture : MonoBehaviour
 
     void Initialize()
     {
-        GStreamer.GUBUnityDebugLogPFN log_handler = null;
+        GStreamerNativeMethods.GUBUnityDebugLogPFN log_handler = null;
         if (Application.isEditor)
         {
             log_handler = (int level, string message) => Debug.logger.Log((LogType)level, "GUB", message);
         }
 
-        GStreamer.Ref("2", log_handler);
+        GStreamerNativeMethods.Ref("2", log_handler);
         m_instanceHandle = GCHandle.Alloc(this);
-        m_Pipeline = new GstUnityBridgePipeline(name + GetInstanceID(), OnFinish, null, null, (System.IntPtr)m_instanceHandle);
+        m_Pipeline = new GStreamerNativeMethods(name + GetInstanceID(), OnFinish, null, null, (System.IntPtr)m_instanceHandle);
     }
 
     void Start()
@@ -95,7 +95,7 @@ class GstUnityBridgeCapture : MonoBehaviour
             }
             m_Pipeline.Destroy();
             m_Pipeline = null;
-            GStreamer.Unref();
+            GStreamerNativeMethods.Unref();
             m_instanceHandle.Free();
         }
     }

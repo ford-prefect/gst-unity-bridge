@@ -20,10 +20,34 @@
 
 using UnityEngine;
 using System.Runtime.InteropServices;	// For DllImport.
+using System;
+using System.IO;
 
-public class GstUnityBridgePipeline
+public class GStreamerNativeMethods
 {
     internal const string DllName = "GstUnityBridge";
+
+    [DllImport("gstreamer_android", CallingConvention = CallingConvention.Cdecl)]
+    extern static private UIntPtr gst_android_get_application_class_loader();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I4)]
+    extern static private bool gub_ref([MarshalAs(UnmanagedType.LPStr)]string gst_debug_string);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static private void gub_unref();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I4)]
+    extern static private bool gub_is_active();
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void GUBUnityDebugLogPFN(
+        [MarshalAs(UnmanagedType.I4)]int level,
+        [MarshalAs(UnmanagedType.LPStr)]string message);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static private void gub_log_set_unity_handler(GUBUnityDebugLogPFN pfn);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     extern static private void gub_pipeline_destroy(System.IntPtr p);
@@ -110,8 +134,88 @@ public class GstUnityBridgePipeline
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     extern static private void gub_pipeline_set_adaptive_bitrate_limit(System.IntPtr p, float bitrate_limit);
 
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static private void gub_log_value(System.IntPtr p);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static private IntPtr gub_get_log_method(System.IntPtr p);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static internal IntPtr GetRenderEventFunc();
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static private void gub_set_texture(IntPtr p, IntPtr texPtr);
+
     protected System.IntPtr m_Instance;
 
+    internal GStreamerNativeMethods(string name, GUBPipelineOnEosPFN eos_pfn, GUBPipelineOnErrorPFN error_pfn, GUBPipelineOnQosPFN qos_pfn, System.IntPtr userdata)
+    {
+        m_Instance = gub_pipeline_create(name,
+            eos_pfn == null ? (System.IntPtr)null : Marshal.GetFunctionPointerForDelegate(eos_pfn),
+            error_pfn == null ? (System.IntPtr)null : Marshal.GetFunctionPointerForDelegate(error_pfn),
+            qos_pfn == null ? (System.IntPtr)null : Marshal.GetFunctionPointerForDelegate(qos_pfn),
+            userdata);
+    }
+
+    internal static bool IsActive
+    {
+        get
+        {
+            return gub_is_active();
+        }
+    }
+
+    public static void AddPluginsToPath()
+    {
+        // Setup the PATH environment variable so it can find the GstUnityBridge dll.
+        var currentPath = Environment.GetEnvironmentVariable("PATH",
+            EnvironmentVariableTarget.Process);
+        var dllPath = "";
+
+#if UNITY_EDITOR
+
+#if UNITY_EDITOR_32
+        dllPath = Application.dataPath + "/Plugins/x86";
+#elif UNITY_EDITOR_64
+        dllPath = Application.dataPath + "/Plugins/x86_64";
+#endif
+
+        if (currentPath != null && currentPath.Contains(dllPath) == false)
+            Environment.SetEnvironmentVariable("PATH",
+                dllPath + Path.PathSeparator +
+                dllPath + "/GStreamer/bin" + Path.PathSeparator +
+                currentPath,
+                EnvironmentVariableTarget.Process);
+#else
+        dllPath = Application.dataPath + "/Plugins";
+        if (currentPath != null && currentPath.Contains(dllPath) == false)
+            Environment.SetEnvironmentVariable("PATH",
+                dllPath + Path.PathSeparator +
+                currentPath,
+                EnvironmentVariableTarget.Process);
+        Environment.SetEnvironmentVariable("GST_PLUGIN_PATH", dllPath, EnvironmentVariableTarget.Process);
+#endif
+    }
+
+    internal static void Ref(string gst_debug_string, GUBUnityDebugLogPFN log_handler)
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        // Force loading of gstreamer_android.so before GstUnityBridge.so
+        gst_android_get_application_class_loader();
+        AndroidJNIHelper.debug = true;
+        AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+        AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+        AndroidJavaClass gstAndroid = new AndroidJavaClass("org.freedesktop.gstreamer.GStreamer");
+        gstAndroid.CallStatic("init", activity);
+#endif
+        gub_log_set_unity_handler(log_handler);
+        gub_ref(gst_debug_string);
+    }
+
+    internal static void Unref()
+    {
+        gub_unref();
+    }
     internal bool IsLoaded
     {
         get
@@ -119,7 +223,7 @@ public class GstUnityBridgePipeline
             return gub_pipeline_is_loaded(m_Instance);
         }
     }
-
+    
     internal bool IsPlaying
     {
         get
@@ -164,15 +268,6 @@ public class GstUnityBridgePipeline
         set { gub_pipeline_set_position(m_Instance, value); }
     }
 
-    internal GstUnityBridgePipeline(string name, GUBPipelineOnEosPFN eos_pfn, GUBPipelineOnErrorPFN error_pfn, GUBPipelineOnQosPFN qos_pfn, System.IntPtr userdata)
-    {
-        m_Instance = gub_pipeline_create(name,
-            eos_pfn == null ? (System.IntPtr)null : Marshal.GetFunctionPointerForDelegate(eos_pfn),
-            error_pfn == null ? (System.IntPtr)null : Marshal.GetFunctionPointerForDelegate(error_pfn),
-            qos_pfn == null ? (System.IntPtr)null : Marshal.GetFunctionPointerForDelegate(qos_pfn),
-            userdata);
-    }
-
     internal void SetupDecoding(string uri, bool playAllStreams, int video_index, int audio_index, string net_clock_address, int net_clock_port, ulong basetime, string audioGUID, float crop_left, float crop_top, float crop_right, float crop_bottom)
     {
         gub_pipeline_setup_decoding(m_Instance, uri, playAllStreams, video_index, audio_index, net_clock_address, net_clock_port, basetime, audioGUID, crop_left, crop_top, crop_right, crop_bottom);
@@ -196,6 +291,14 @@ public class GstUnityBridgePipeline
         if (_NativeTexturePtr == System.IntPtr.Zero) return;
 
         gub_pipeline_blit_image(m_Instance, _NativeTexturePtr);
+    }
+    internal void SetTexture(IntPtr texture)
+    {
+        gub_set_texture(m_Instance, texture);
+    }
+    internal void test_log()
+    {
+        gub_log_value(m_Instance);
     }
 
     internal void SetupEncoding(string filename, int width, int height)

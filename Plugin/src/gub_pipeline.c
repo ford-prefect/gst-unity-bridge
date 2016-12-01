@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "gub.h"
+#include "Unity/IUnityGraphics.h"
 
 #define MAX_JITTERBUFFER_DELAY_MS 400
 #define MAX_PIPELINE_DELAY_MS 500
@@ -39,11 +40,28 @@ typedef void(*GUBPipelineOnQosPFN)(GUBPipeline *userdata,
     gint64 current_jitter, guint64 current_running_time, guint64 current_stream_time, guint64 current_timestamp,
     gdouble proportion, guint64 processed, guint64 dropped);
 
+//TODO this should come from IUnityGraphics.h
+/*
+typedef enum UnityGfxDeviceEventType
+{
+	kUnityGfxDeviceEventInitialize = 0,
+	kUnityGfxDeviceEventShutdown = 1,
+	kUnityGfxDeviceEventBeforeReset = 2,
+	kUnityGfxDeviceEventAfterReset = 3,
+} UnityGfxDeviceEventType;
+typedef void (UNITY_INTERFACE_API * IUnityGraphicsDeviceEventCallback)(UnityGfxDeviceEventType eventType);
+typedef void (UNITY_INTERFACE_API * UnityRenderingEvent)(int eventId);
+*/
+
+// Unity's GL.IssuePluginEvent only allows a function pointer and a eventID, so we need to add a static variable
+static GUBPipeline* currentPipeline;
+
 struct _GUBPipeline {
     char *name;
     GUBGraphicContext *graphic_context;
     gboolean supports_cropping_blit;
 
+	void *texture;
     GstElement *pipeline;
     GstSample *last_sample;
     GstClock *net_clock;
@@ -90,8 +108,23 @@ EXPORT_API void *gub_pipeline_create(const char *name,
     pipeline->on_qos_handler = qos_handler;
     pipeline->userdata = userdata;
 
+	//TODO, do we need to handle if currentPipeline is already assigned?
+	currentPipeline = pipeline;
+
     return pipeline;
 }
+
+EXPORT_API void gub_set_texture(GUBPipeline *pipeline, void* textureHandle)
+{
+	pipeline->texture = textureHandle;
+	gub_log_pipeline(pipeline, "Set texture");
+}
+EXPORT_API void gub_log_value(int eventID)
+{
+	if(currentPipeline)
+		gub_log_pipeline(currentPipeline, "Pipeline found");
+}
+
 
 EXPORT_API void gub_pipeline_close(GUBPipeline *pipeline)
 {
@@ -108,6 +141,7 @@ EXPORT_API void gub_pipeline_close(GUBPipeline *pipeline)
 
 EXPORT_API void gub_pipeline_destroy(GUBPipeline *pipeline)
 {
+	currentPipeline = NULL;
     gub_pipeline_close(pipeline);
     g_free(pipeline->name);
     free(pipeline);
@@ -400,6 +434,91 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
     }
 }
 
+static void gub_render()
+{
+	if (!currentPipeline)
+		return;
+	if (!currentPipeline->texture)
+	{
+        gub_log_pipeline(currentPipeline, "Texture is null!");
+		return;
+	}
+    GstElement *sink = gst_bin_get_by_name(GST_BIN(currentPipeline->pipeline), "sink");
+    GstCaps *last_caps = NULL;
+    GstVideoInfo info;
+
+    if (!currentPipeline->graphic_context) {
+		currentPipeline->graphic_context = gub_create_graphic_context(
+            GST_PIPELINE(currentPipeline->pipeline),
+			currentPipeline->video_crop_left, currentPipeline->video_crop_top, currentPipeline->video_crop_right, currentPipeline->video_crop_bottom);
+    }
+
+    if (currentPipeline->playing == FALSE && currentPipeline->play_requested == TRUE) {
+        gub_log_pipeline(currentPipeline, "Setting pipeline to PLAYING");
+        gst_element_set_state(GST_ELEMENT(currentPipeline->pipeline), GST_STATE_PLAYING);
+        gub_log_pipeline(currentPipeline, "State change completed");
+		currentPipeline->playing = TRUE;
+    }
+
+    if (currentPipeline->last_sample) {
+        gst_sample_unref(currentPipeline->last_sample);
+		currentPipeline->last_sample = NULL;
+    }
+
+    if (!sink) {
+        gub_log_pipeline(currentPipeline, "Pipeline does not contain a sink named 'sink'");
+        return;
+    }
+
+    g_object_get(sink, "last-sample", &currentPipeline->last_sample, NULL);
+    gst_object_unref(sink);
+    if (!currentPipeline->last_sample) {
+        gub_log_pipeline(currentPipeline, "Could not read property 'last-sample' from sink %s",
+            gst_plugin_feature_get_name(gst_element_get_factory(sink)));
+        return;
+    }
+
+    last_caps = gst_sample_get_caps(currentPipeline->last_sample);
+    if (!last_caps) {
+        gub_log_pipeline(currentPipeline, "Sample contains no caps in sink %s",
+            gst_plugin_feature_get_name(gst_element_get_factory(sink)));
+        gst_sample_unref(currentPipeline->last_sample);
+		currentPipeline->last_sample = NULL;
+        return;
+    }
+
+    gst_video_info_from_caps(&info, last_caps);
+
+#if 0
+    // Uncomment to have some timing debug information
+    if (pipeline->net_clock) {
+        GstBuffer *buff = gst_sample_get_buffer(pipeline->last_sample);
+        GstClockTime pts = GST_BUFFER_PTS(buff);
+        GstClockTime curr = gst_clock_get_time(pipeline->net_clock);
+        GstClockTime base = gst_element_get_base_time(pipeline->pipeline);
+        gub_log_pipeline(pipeline, "Buffer PTS is %" GST_TIME_FORMAT ", current is %" GST_TIME_FORMAT ", base is %" GST_TIME_FORMAT, GST_TIME_ARGS(pts), GST_TIME_ARGS(curr), GST_TIME_ARGS(base));
+        if (gst_element_get_clock(pipeline->pipeline) != pipeline->net_clock)
+            gub_log_pipeline(pipeline, "WRONG CLOCK: pipeline=%p net_clock=%p", gst_element_get_clock(pipeline->pipeline), pipeline->net_clock);
+    }
+#endif
+
+	gub_blit_image(currentPipeline->graphic_context, currentPipeline->last_sample, currentPipeline->texture);
+
+	gst_sample_unref(currentPipeline->last_sample);
+	currentPipeline->last_sample = NULL;
+	gub_log_pipeline(currentPipeline, "Done Rendering");
+}
+EXPORT_API void RenderEventSwitch(int eventID)
+{
+	//TODO switch on different eventIDs here
+	gub_render();
+}
+EXPORT_API UnityRenderingEvent GetRenderEventFunc()
+{
+	return RenderEventSwitch;
+	//return gub_log_value;
+}
+
 EXPORT_API gint32 gub_pipeline_grab_frame(GUBPipeline *pipeline, int *width, int *height)
 {
     GstElement *sink = gst_bin_get_by_name(GST_BIN(pipeline->pipeline), "sink");
@@ -425,15 +544,15 @@ EXPORT_API gint32 gub_pipeline_grab_frame(GUBPipeline *pipeline, int *width, int
     }
 
     if (!sink) {
-        gub_log_pipeline(pipeline, "Pipeline does not contain a sink named 'sink'");
+        //gub_log_pipeline(pipeline, "Pipeline does not contain a sink named 'sink'");
         return 0;
     }
 
     g_object_get(sink, "last-sample", &pipeline->last_sample, NULL);
     gst_object_unref(sink);
     if (!pipeline->last_sample) {
-        gub_log_pipeline(pipeline, "Could not read property 'last-sample' from sink %s",
-            gst_plugin_feature_get_name(gst_element_get_factory(sink)));
+        //gub_log_pipeline(pipeline, "Could not read property 'last-sample' from sink %s",
+         //   gst_plugin_feature_get_name(gst_element_get_factory(sink)));
         return 0;
     }
 
