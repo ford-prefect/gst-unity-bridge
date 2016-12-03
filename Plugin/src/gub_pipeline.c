@@ -531,15 +531,12 @@ static void gub_render()
 	}
 	int width;
 	int height;
-	gub_log_pipeline(currentPipeline, "Will grab frame");
 	gub_pipeline_grab_frame(currentPipeline, &width, &height);
 
 	currentPipeline->video_width = width;
 	currentPipeline->video_height = height;
 
-	gub_log_pipeline(currentPipeline, "Will blit");
 	gub_pipeline_blit_image(currentPipeline, currentPipeline->texture);
-	gub_log_pipeline(currentPipeline, "Render done");
 }
 static void gub_prepare_for_render() {
 	if (!currentPipeline)
