@@ -441,15 +441,11 @@ public class GstUnityBridgeTexture : MonoBehaviour
         m_AdaptiveBitrateLimit = bitrate_limit;
     }
 
-    private bool TryToCreateTexture()
+    private void CreateTexture(int width, int height)
     {
-        Vector2 sz;
-        if (!m_Pipeline.GrabFrame(out sz))
-            return false;
         print("Ready to play");
-        Resize((int)sz.x, (int)sz.y);
+        Resize(width, height);
         m_Pipeline.SetTexture(m_Texture.GetNativeTexturePtr());
-        return true;
     }
     void Update()
     {
@@ -458,8 +454,15 @@ public class GstUnityBridgeTexture : MonoBehaviour
 
         if (m_Texture == null)
         {
-            if (!TryToCreateTexture())
+            GL.IssuePluginEvent(GStreamerNativeMethods.GetRenderEventFunc(), 0);
+            int width = 0;
+            int height = 0;
+            bool isNowReady = GStreamerNativeMethods.IsReadyToRender(ref width, ref height);
+            if (!isNowReady)
                 return;
+
+            //This means that we've just initialized, so create a texture and send it to the active pipeline
+            CreateTexture(width, height);
         }
 
         GL.IssuePluginEvent(GStreamerNativeMethods.GetRenderEventFunc(), 1);

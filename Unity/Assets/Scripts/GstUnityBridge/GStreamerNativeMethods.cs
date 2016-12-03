@@ -146,6 +146,9 @@ public class GStreamerNativeMethods
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     extern static private void gub_set_texture(IntPtr p, IntPtr texPtr);
 
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    extern static private bool gub_pipeline_is_ready_to_render(ref int w, ref int h);
+
     protected System.IntPtr m_Instance;
 
     internal GStreamerNativeMethods(string name, GUBPipelineOnEosPFN eos_pfn, GUBPipelineOnErrorPFN error_pfn, GUBPipelineOnQosPFN qos_pfn, System.IntPtr userdata)
@@ -295,6 +298,10 @@ public class GStreamerNativeMethods
     internal void SetTexture(IntPtr texture)
     {
         gub_set_texture(m_Instance, texture);
+    }
+    internal static bool IsReadyToRender(ref int width, ref int height)
+    {
+        return gub_pipeline_is_ready_to_render(ref width, ref height);
     }
     internal void test_log()
     {

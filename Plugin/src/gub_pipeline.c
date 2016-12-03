@@ -75,6 +75,7 @@ struct _GUBPipeline {
     float video_crop_right;
     float video_crop_bottom;
     int video_width, video_height;
+	gboolean is_ready_to_render;
 
     GUBPipelineOnEosPFN on_eos_handler;
     GUBPipelineOnErrorPFN on_error_handler;
@@ -108,7 +109,7 @@ EXPORT_API void *gub_pipeline_create(const char *name,
     pipeline->on_qos_handler = qos_handler;
     pipeline->userdata = userdata;
 
-	//TODO, do we need to handle if currentPipeline is already assigned?
+	//TODO, handle if currentPipeline is already assigned
 	currentPipeline = pipeline;
 
     return pipeline;
@@ -530,24 +531,50 @@ static void gub_render()
 	}
 	int width;
 	int height;
+	gub_log_pipeline(currentPipeline, "Will grab frame");
 	gub_pipeline_grab_frame(currentPipeline, &width, &height);
 
 	currentPipeline->video_width = width;
 	currentPipeline->video_height = height;
 
-	gub_blit_image(currentPipeline->graphic_context, currentPipeline->last_sample, currentPipeline->texture);
-	gst_sample_unref(currentPipeline->last_sample);
-	currentPipeline->last_sample = NULL;
+	gub_log_pipeline(currentPipeline, "Will blit");
+	gub_pipeline_blit_image(currentPipeline, currentPipeline->texture);
+	gub_log_pipeline(currentPipeline, "Render done");
+}
+static void gub_prepare_for_render() {
+	if (!currentPipeline)
+		return;
+	int width;
+	int height;
+	int result = gub_pipeline_grab_frame(currentPipeline, &width, &height);
+
+	if (result == 1) {
+		currentPipeline->video_width = width;
+		currentPipeline->video_height = height;
+		currentPipeline->is_ready_to_render = TRUE;
+	}
 }
 EXPORT_API void RenderEventSwitch(int eventID)
 {
-	//TODO switch on different eventIDs here
-	gub_render();
+	if (eventID == 0) {
+		gub_prepare_for_render();
+	}
+	else if(eventID == 1)
+	{
+		gub_render();
+	}
 }
 EXPORT_API UnityRenderingEvent GetRenderEventFunc()
 {
 	return RenderEventSwitch;
-	//return gub_log_value;
+}
+EXPORT_API gboolean gub_pipeline_is_ready_to_render(int *width, int *height) {
+	if (currentPipeline->is_ready_to_render) {
+		*width = currentPipeline->video_width;
+		*height = currentPipeline->video_height;
+		return TRUE;
+	}
+	return FALSE;
 }
 
 GstEncodingProfile * gub_pipeline_create_mp4_h264_profile(void)
