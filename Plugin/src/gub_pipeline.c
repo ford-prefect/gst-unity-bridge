@@ -434,90 +434,6 @@ EXPORT_API void gub_pipeline_setup_decoding(GUBPipeline *pipeline, const gchar *
     }
 }
 
-static void gub_render()
-{
-	if (!currentPipeline)
-		return;
-	if (!currentPipeline->texture)
-	{
-        gub_log_pipeline(currentPipeline, "Texture is null!");
-		return;
-	}
-    GstElement *sink = gst_bin_get_by_name(GST_BIN(currentPipeline->pipeline), "sink");
-    GstCaps *last_caps = NULL;
-    GstVideoInfo info;
-
-    if (!currentPipeline->graphic_context) {
-		currentPipeline->graphic_context = gub_create_graphic_context(
-            GST_PIPELINE(currentPipeline->pipeline),
-			currentPipeline->video_crop_left, currentPipeline->video_crop_top, currentPipeline->video_crop_right, currentPipeline->video_crop_bottom);
-    }
-
-    if (currentPipeline->playing == FALSE && currentPipeline->play_requested == TRUE) {
-        gub_log_pipeline(currentPipeline, "Setting pipeline to PLAYING");
-        gst_element_set_state(GST_ELEMENT(currentPipeline->pipeline), GST_STATE_PLAYING);
-        gub_log_pipeline(currentPipeline, "State change completed");
-		currentPipeline->playing = TRUE;
-    }
-
-    if (currentPipeline->last_sample) {
-        gst_sample_unref(currentPipeline->last_sample);
-		currentPipeline->last_sample = NULL;
-    }
-
-    if (!sink) {
-        gub_log_pipeline(currentPipeline, "Pipeline does not contain a sink named 'sink'");
-        return;
-    }
-
-    g_object_get(sink, "last-sample", &currentPipeline->last_sample, NULL);
-    gst_object_unref(sink);
-    if (!currentPipeline->last_sample) {
-        gub_log_pipeline(currentPipeline, "Could not read property 'last-sample' from sink %s",
-            gst_plugin_feature_get_name(gst_element_get_factory(sink)));
-        return;
-    }
-
-    last_caps = gst_sample_get_caps(currentPipeline->last_sample);
-    if (!last_caps) {
-        gub_log_pipeline(currentPipeline, "Sample contains no caps in sink %s",
-            gst_plugin_feature_get_name(gst_element_get_factory(sink)));
-        gst_sample_unref(currentPipeline->last_sample);
-		currentPipeline->last_sample = NULL;
-        return;
-    }
-
-    gst_video_info_from_caps(&info, last_caps);
-
-#if 0
-    // Uncomment to have some timing debug information
-    if (pipeline->net_clock) {
-        GstBuffer *buff = gst_sample_get_buffer(pipeline->last_sample);
-        GstClockTime pts = GST_BUFFER_PTS(buff);
-        GstClockTime curr = gst_clock_get_time(pipeline->net_clock);
-        GstClockTime base = gst_element_get_base_time(pipeline->pipeline);
-        gub_log_pipeline(pipeline, "Buffer PTS is %" GST_TIME_FORMAT ", current is %" GST_TIME_FORMAT ", base is %" GST_TIME_FORMAT, GST_TIME_ARGS(pts), GST_TIME_ARGS(curr), GST_TIME_ARGS(base));
-        if (gst_element_get_clock(pipeline->pipeline) != pipeline->net_clock)
-            gub_log_pipeline(pipeline, "WRONG CLOCK: pipeline=%p net_clock=%p", gst_element_get_clock(pipeline->pipeline), pipeline->net_clock);
-    }
-#endif
-
-	gub_blit_image(currentPipeline->graphic_context, currentPipeline->last_sample, currentPipeline->texture);
-
-	gst_sample_unref(currentPipeline->last_sample);
-	currentPipeline->last_sample = NULL;
-	gub_log_pipeline(currentPipeline, "Done Rendering");
-}
-EXPORT_API void RenderEventSwitch(int eventID)
-{
-	//TODO switch on different eventIDs here
-	gub_render();
-}
-EXPORT_API UnityRenderingEvent GetRenderEventFunc()
-{
-	return RenderEventSwitch;
-	//return gub_log_value;
-}
 
 EXPORT_API gint32 gub_pipeline_grab_frame(GUBPipeline *pipeline, int *width, int *height)
 {
@@ -602,6 +518,36 @@ EXPORT_API void gub_pipeline_blit_image(GUBPipeline *pipeline, void *_TextureNat
 
     gst_sample_unref(pipeline->last_sample);
     pipeline->last_sample = NULL;
+}
+static void gub_render()
+{
+	if (!currentPipeline)
+		return;
+	if (!currentPipeline->texture)
+	{
+        gub_log_pipeline(currentPipeline, "Texture is null!");
+		return;
+	}
+	int width;
+	int height;
+	gub_pipeline_grab_frame(currentPipeline, &width, &height);
+
+	currentPipeline->video_width = width;
+	currentPipeline->video_height = height;
+
+	gub_blit_image(currentPipeline->graphic_context, currentPipeline->last_sample, currentPipeline->texture);
+	gst_sample_unref(currentPipeline->last_sample);
+	currentPipeline->last_sample = NULL;
+}
+EXPORT_API void RenderEventSwitch(int eventID)
+{
+	//TODO switch on different eventIDs here
+	gub_render();
+}
+EXPORT_API UnityRenderingEvent GetRenderEventFunc()
+{
+	return RenderEventSwitch;
+	//return gub_log_value;
 }
 
 GstEncodingProfile * gub_pipeline_create_mp4_h264_profile(void)
