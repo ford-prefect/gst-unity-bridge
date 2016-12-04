@@ -37,7 +37,7 @@
 /* Created by Unity when the rendering engine is selected */
 typedef void GUBGraphicDevice;
 
-typedef GUBGraphicDevice* (*GUBCreateGraphicDevicePFN)(void* device, int deviceType);
+typedef GUBGraphicDevice* (*GUBCreateGraphicDevicePFN)();
 typedef void(*GUBDestroyGraphicDevicePFN)(GUBGraphicDevice *gdevice);
 typedef GUBGraphicContext* (*GUBCreateGraphicContextPFN)(GstPipeline *pipeline, float crop_x, float crop_y, float crop_width, float crop_height);
 typedef GstContext* (*GUBProvideGraphicContextPFN)(GUBGraphicContext *gcontext, const gchar *type);
@@ -57,6 +57,9 @@ typedef struct _GUBGraphicBackend {
 
 GUBGraphicBackend *gub_graphic_backend = NULL;
 GUBGraphicDevice *gub_graphic_device = NULL;
+IUnityInterfaces* s_UnityInterfaces = NULL;
+IUnityGraphics* s_Graphics = NULL;
+UnityGfxRenderer s_RendererType = kUnityGfxRendererNull;
 
 #if SUPPORT_D3D9
 // --------------------------------------------------------------------------------------------------------------------
@@ -152,6 +155,7 @@ GUBGraphicBackend gub_graphic_backend_d3d9 = {
 // --------------------------------------------------- D3D11 SUPPORT --------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------
 #include <d3d11.h>
+#include "Unity/IUnityGraphicsD3D11.h"
 
 typedef struct _GUBGraphicDeviceD3D11 {
     ID3D11Device* d3d11device;
@@ -212,10 +216,11 @@ static void gub_copy_texture_d3d11(GUBGraphicContextD3D11 *gcontext, GstVideoInf
     ctx->lpVtbl->Release(ctx);
 }
 
-static GUBGraphicDevice *gub_create_graphic_device_d3d11(void* device, int deviceType)
+static GUBGraphicDevice *gub_create_graphic_device_d3d11()
 {
     GUBGraphicDeviceD3D11 *gdevice = (GUBGraphicDeviceD3D11 *)malloc(sizeof(GUBGraphicDeviceD3D11));
-    gdevice->d3d11device = (ID3D11Device*)device;
+	IUnityGraphicsD3D11* d3d = s_UnityInterfaces->GetInterface(UNITY_GET_INTERFACE_GUID(IUnityGraphicsD3D11));
+    gdevice->d3d11device = d3d->GetDevice();
     return gdevice;
 }
 
@@ -729,16 +734,14 @@ EXPORT_API UnityRenderingEvent GetRenderEventFunc()
 {
 	return RenderEventSwitch;
 }
-// If exported by a plugin, this function will be called when graphics device is created, destroyed,
-// and before and after it is reset (ie, resolution changed).
-void EXPORT_API UnitySetGraphicsDevice(void* device, int deviceType, int eventType)
-{
+void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
     switch (eventType)
     {
     case kUnityGfxDeviceEventInitialize:
     case kUnityGfxDeviceEventAfterReset:
+		s_RendererType = s_Graphics->GetRenderer();
 
-        switch (deviceType)
+        switch (s_RendererType)
         {
 #if SUPPORT_D3D9
         case kUnityGfxRendererD3D9:
@@ -767,15 +770,17 @@ void EXPORT_API UnitySetGraphicsDevice(void* device, int deviceType, int eventTy
             break;
 #endif
         default:
-            gub_log("Unsupported graphic device %d", deviceType);
+            gub_log("Unsupported graphic device %d", s_Graphics->GetRenderer());
             break;
         }
         if (gub_graphic_backend->create_graphic_device) {
-            gub_graphic_device = gub_graphic_backend->create_graphic_device(device, deviceType);
+            gub_graphic_device = gub_graphic_backend->create_graphic_device();
         }
         break;
     case kUnityGfxDeviceEventShutdown:
     case kUnityGfxDeviceEventBeforeReset:
+		s_RendererType = kUnityGfxRendererNull;
+
         if (gub_graphic_device && gub_graphic_backend && gub_graphic_backend->destroy_graphic_device) {
             gub_log("Destroying graphic device");
             gub_graphic_backend->destroy_graphic_device(gub_graphic_device);
@@ -783,3 +788,15 @@ void EXPORT_API UnitySetGraphicsDevice(void* device, int deviceType, int eventTy
         break;
     }
 }
+void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces) {
+	s_UnityInterfaces = unityInterfaces;
+	s_Graphics = unityInterfaces->GetInterface(UNITY_GET_INTERFACE_GUID(IUnityGraphics));
+	s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
+
+	OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
+}
+void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
+	s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+}
+// If exported by a plugin, this function will be called when graphics device is created, destroyed,
+// and before and after it is reset (ie, resolution changed).
