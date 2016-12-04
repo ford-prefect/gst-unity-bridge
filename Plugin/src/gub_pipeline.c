@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "gub.h"
-#include "Unity/IUnityGraphics.h"
 
 #define MAX_JITTERBUFFER_DELAY_MS 400
 #define MAX_PIPELINE_DELAY_MS 500
@@ -551,7 +550,7 @@ static void gub_prepare_for_render() {
 		currentPipeline->is_ready_to_render = TRUE;
 	}
 }
-EXPORT_API void RenderEventSwitch(int eventID)
+void RenderEventSwitch(int eventID)
 {
 	if (eventID == 0) {
 		gub_prepare_for_render();
@@ -560,10 +559,6 @@ EXPORT_API void RenderEventSwitch(int eventID)
 	{
 		gub_render();
 	}
-}
-EXPORT_API UnityRenderingEvent GetRenderEventFunc()
-{
-	return RenderEventSwitch;
 }
 EXPORT_API gboolean gub_pipeline_is_ready_to_render(int *width, int *height) {
 	if (currentPipeline->is_ready_to_render) {

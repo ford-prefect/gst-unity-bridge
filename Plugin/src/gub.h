@@ -37,6 +37,7 @@ GstContext *gub_provide_graphic_context(GUBGraphicContext *gcontext, const gchar
 void gub_destroy_graphic_context(GUBGraphicContext *context);
 gboolean gub_blit_image(GUBGraphicContext *gcontext, GstSample *sample, void *texture_native_ptr);
 const gchar *gub_get_video_branch_description();
+void RenderEventSwitch(int eventID);
 
 void gub_log(const char *format, ...);
 void gub_log_error(const char *message);
