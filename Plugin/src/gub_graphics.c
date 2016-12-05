@@ -796,6 +796,7 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces
 	OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
 }
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
+	OnGraphicsDeviceEvent(kUnityGfxDeviceEventShutdown);
 	s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
 }
 // If exported by a plugin, this function will be called when graphics device is created, destroyed,

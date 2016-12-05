@@ -39,19 +39,6 @@ typedef void(*GUBPipelineOnQosPFN)(GUBPipeline *userdata,
     gint64 current_jitter, guint64 current_running_time, guint64 current_stream_time, guint64 current_timestamp,
     gdouble proportion, guint64 processed, guint64 dropped);
 
-//TODO this should come from IUnityGraphics.h
-/*
-typedef enum UnityGfxDeviceEventType
-{
-	kUnityGfxDeviceEventInitialize = 0,
-	kUnityGfxDeviceEventShutdown = 1,
-	kUnityGfxDeviceEventBeforeReset = 2,
-	kUnityGfxDeviceEventAfterReset = 3,
-} UnityGfxDeviceEventType;
-typedef void (UNITY_INTERFACE_API * IUnityGraphicsDeviceEventCallback)(UnityGfxDeviceEventType eventType);
-typedef void (UNITY_INTERFACE_API * UnityRenderingEvent)(int eventId);
-*/
-
 // Unity's GL.IssuePluginEvent only allows a function pointer and a eventID, so we need to add a static variable
 static GUBPipeline* currentPipeline;
 
@@ -119,12 +106,6 @@ EXPORT_API void gub_set_texture(GUBPipeline *pipeline, void* textureHandle)
 	pipeline->texture = textureHandle;
 	gub_log_pipeline(pipeline, "Set texture");
 }
-EXPORT_API void gub_log_value(int eventID)
-{
-	if(currentPipeline)
-		gub_log_pipeline(currentPipeline, "Pipeline found");
-}
-
 
 EXPORT_API void gub_pipeline_close(GUBPipeline *pipeline)
 {
