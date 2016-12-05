@@ -40,8 +40,10 @@ NetworkManager.asset
 ScriptMapper
 Assets/AssetStoreTools*
 Assets/Cardboard*
- 
- 
+Assets/Plugins/Android/assets.meta
+Assets/Plugins/Android/assets/
+Unity.VC.db
+
 ## Ignore Visual Studio files built from VSStudio4Unity
  
 *.suo

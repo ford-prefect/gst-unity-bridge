@@ -1,3 +1,5 @@
 *.sdf
 *.opendb
 .vs
+GstUnityBridge.VC.db
+local.properties
