@@ -35,21 +35,24 @@ EXPORT_API void gub_log_set_unity_handler(GUBUnityDebugLogPFN pfn, gboolean isEd
 void gub_log(const char *format, ...)
 {
     va_list args;
-
     va_start(args, format);
-    if (!gub_unity_debug_log) {
-        static FILE *logf = NULL;
-        if (!logf) {
-            logf = fopen("gub.log", "w+t");
-        }
-        vfprintf(logf, format, args);
-        fprintf(logf, "\n");
-        fflush(logf);
-    } else {
-        gchar *message = g_strdup_vprintf(format, args);
-        gub_unity_debug_log(3, message);
-        g_free(message);
-    }
+
+	if (gub_unity_debug_log) {
+		gchar *message = g_strdup_vprintf(format, args);
+		gub_unity_debug_log(3, message);
+		g_free(message);
+	}
+
+	//Save an additional log to an external file
+#ifdef EXTERNAL_LOG
+	static FILE *logf = NULL;
+	if (!logf) {
+		logf = fopen("gub.log", "w+t");
+	}
+	vfprintf(logf, format, args);
+	fprintf(logf, "\n");
+	fflush(logf);
+#endif // EXTERNAL_LOG
     va_end(args);
 }
 
