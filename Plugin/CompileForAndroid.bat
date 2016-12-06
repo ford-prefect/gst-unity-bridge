@@ -8,13 +8,13 @@ CALL android update project -p . -s --target android-%target-version%
 echo project updated
 
 CALL ndk-build APP_ABI=armeabi-v7a
-xcopy /S /Y libs\* ..\Unity\Assets\Plugins\Android
+xcopy /S /Y libs\* ..\Unity\Assets\Plugins\Android\libs
 
 CALL ant clean
 CALL ant release
 cd bin/classes
 CALL jar cvf gub.jar org/*
-xcopy /Y gub.jar ..\..\..\Unity\Assets\Plugins\Android
+xcopy /Y gub.jar ..\..\..\Unity\Assets\Plugins\Android\libs
 
 cd ..
 cd ..
