@@ -26,7 +26,7 @@ typedef void(*GUBUnityDebugLogPFN)(gint32 level, const char *message);
 
 GUBUnityDebugLogPFN gub_unity_debug_log = NULL;
 
-EXPORT_API void gub_log_set_unity_handler(GUBUnityDebugLogPFN pfn) {
+EXPORT_API void gub_log_set_unity_handler(GUBUnityDebugLogPFN pfn, gboolean isEditor) {
     gub_unity_debug_log = pfn;
 }
 

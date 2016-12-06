@@ -32,7 +32,9 @@ public class GStreamerNativeMethods
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I4)]
-    extern static private bool gub_ref([MarshalAs(UnmanagedType.LPStr)]string gst_debug_string);
+    extern static private bool gub_ref(
+        [MarshalAs(UnmanagedType.LPStr)]string gst_debug_string,
+        int isEditor);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     extern static private void gub_unref();
@@ -135,9 +137,6 @@ public class GStreamerNativeMethods
     extern static private void gub_pipeline_set_adaptive_bitrate_limit(System.IntPtr p, float bitrate_limit);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    extern static private void gub_log_value(System.IntPtr p);
-
-    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     extern static private IntPtr gub_get_log_method(System.IntPtr p);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
@@ -212,7 +211,7 @@ public class GStreamerNativeMethods
         gstAndroid.CallStatic("init", activity);
 #endif
         gub_log_set_unity_handler(log_handler);
-        gub_ref(gst_debug_string);
+        gub_ref(gst_debug_string, Application.isEditor ? 1 : 0);
     }
 
     internal static void Unref()
@@ -302,10 +301,6 @@ public class GStreamerNativeMethods
     internal static bool IsReadyToRender(ref int width, ref int height)
     {
         return gub_pipeline_is_ready_to_render(ref width, ref height);
-    }
-    internal void test_log()
-    {
-        gub_log_value(m_Instance);
     }
 
     internal void SetupEncoding(string filename, int width, int height)

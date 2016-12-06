@@ -73,14 +73,15 @@ struct _GUBPipeline {
 
 void gub_log_pipeline(GUBPipeline *pipeline, const char *format, ...)
 {
-    va_list argptr;
-    va_start(argptr, format);
-    gchar *new_format = g_strdup_printf("[%s] %s", pipeline->name, format);
-    gchar *final_string = g_strdup_vprintf(new_format, argptr);
-    g_free(new_format);
-    va_end(argptr);
-    //gub_log("%s", final_string);
-    g_free(final_string);
+	if (!isEditor)
+		return;
+	va_list argptr;
+	va_start(argptr, format);
+	gchar *new_format = g_strdup_printf("[%s] %s", pipeline->name, format);
+	gchar *final_string = g_strdup_vprintf(new_format, argptr);
+	g_free(new_format);
+	va_end(argptr);
+	g_free(final_string);
 }
 
 EXPORT_API void *gub_pipeline_create(const char *name,

@@ -41,5 +41,6 @@ void RenderEventSwitch(int eventID);
 
 void gub_log(const char *format, ...);
 void gub_log_error(const char *message);
+extern gboolean isEditor;
 
 #endif

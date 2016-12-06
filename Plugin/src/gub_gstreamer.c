@@ -27,6 +27,7 @@ static GstClockTime _priv_gst_info_start_time;
 gint gub_ref_count = 0;
 GThread *gub_main_loop_thread = NULL;
 GMainLoop *gub_main_loop = NULL;
+gboolean isEditor;
 
 gpointer gub_main_loop_func(gpointer data)
 {
@@ -104,8 +105,9 @@ static void gst_debug_gub(GstDebugCategory * category, GstDebugLevel level,
     g_free(tag);
 }
 
-EXPORT_API void gub_ref(const char *gst_debug_string)
+EXPORT_API void gub_ref(const char *gst_debug_string, int is_editor)
 {
+	isEditor = is_editor > 0;
     gub_log("GST ref (%d -> %d)", gub_ref_count, gub_ref_count + 1);
     if (gub_ref_count == 0) {
         GError *err = 0;
