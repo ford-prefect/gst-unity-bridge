@@ -463,14 +463,6 @@ public class GstUnityBridgeTexture : MonoBehaviour
 
             //This means that we've just initialized, so create a texture and send it to the active pipeline
             CreateTexture(width, height);
-        }
-
-        GL.IssuePluginEvent(GStreamerNativeMethods.GetRenderEventFunc(), 1);
-        return;
-        Vector2 sz;
-        if (m_Pipeline.GrabFrame(out sz))
-        {
-            m_Pipeline.BlitTexture(m_Texture.GetNativeTexturePtr(), m_Texture.width, m_Texture.height);
             if (m_FirstFrame)
             {
                 if (m_AdaptiveBitrateLimit != 1.0F)
@@ -484,5 +476,7 @@ public class GstUnityBridgeTexture : MonoBehaviour
                 m_FirstFrame = false;
             }
         }
+
+        GL.IssuePluginEvent(GStreamerNativeMethods.GetRenderEventFunc(), 1);
     }
 }
