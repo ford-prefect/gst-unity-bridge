@@ -14,7 +14,7 @@ CALL ant clean
 CALL ant release
 cd bin/classes
 CALL jar cvf gub.jar org/*
-xcopy /Y gub.jar ..\..\..\Unity\Assets\Plugins\Android\libs
+xcopy /Y gub.jar ..\..\..\Unity\Assets\Plugins\Android
 
 cd ..
 cd ..
