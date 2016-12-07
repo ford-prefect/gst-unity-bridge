@@ -734,12 +734,13 @@ EXPORT_API UnityRenderingEvent GetRenderEventFunc()
 {
 	return RenderEventSwitch;
 }
-void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
+//void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
+void EXPORT_API UnitySetGraphicsDevice(void* device, int s_RendererType, int eventType) {
     switch (eventType)
     {
     case kUnityGfxDeviceEventInitialize:
     case kUnityGfxDeviceEventAfterReset:
-		s_RendererType = s_Graphics->GetRenderer();
+		//s_RendererType = s_Graphics->GetRenderer();
 
         switch (s_RendererType)
         {
@@ -770,7 +771,7 @@ void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType
             break;
 #endif
         default:
-            gub_log("Unsupported graphic device %d", s_Graphics->GetRenderer());
+            gub_log("Unsupported graphic device %d", s_RendererType);
             break;
         }
         if (gub_graphic_backend->create_graphic_device) {
@@ -788,16 +789,20 @@ void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType
         break;
     }
 }
+/*
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces) {
 	s_UnityInterfaces = unityInterfaces;
-	s_Graphics = unityInterfaces->GetInterface(UNITY_GET_INTERFACE_GUID(IUnityGraphics));
+	//The line below causes a crash on Android for some reason...
+	s_Graphics = (IUnityGraphics*)(s_UnityInterfaces->GetInterface(IUnityGraphics_GUID));
 	s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
+	s_RendererType = s_Graphics->GetRenderer();
 
 	OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
 }
+
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() {
 	OnGraphicsDeviceEvent(kUnityGfxDeviceEventShutdown);
 	s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
 }
-// If exported by a plugin, this function will be called when graphics device is created, destroyed,
-// and before and after it is reset (ie, resolution changed).
+*/
+
